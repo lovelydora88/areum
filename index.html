@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>경영 실적 및 회계 감사 대시보드</title>
+  
+  <!-- Google Fonts: Inter & Noto Sans KR -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Tabulator CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tabulator-tables/dist/css/tabulator.min.css">
+
+  <!-- CDN Library Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tabulator-tables/dist/js/tabulator.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/numeral/numeral.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs/dayjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/simple-statistics/dist/simple-statistics.min.js"></script>
+
+  <style>
+    /* ==========================================================================
+       1. Core Styling (Theme: 3 Colors - Deep Navy, Emerald Green, White)
+       ========================================================================== */
+    :root {
+      --color-bg: #0b0f19;        /* Color 1: Rich Dark Navy-Black (Main Background) */
+      --color-accent: #10b981;    /* Color 2: Emerald Green (Accent & Action Elements) */
+      --color-text: #ffffff;      /* Color 3: Pure White (Typography & High-Contrast Structure) */
+      
+      /* Opacity variations of the 3 base colors for UI hierarchy */
+      --color-border: rgba(16, 185, 129, 0.12); /* Accent opacity */
+      --color-card-bg: rgba(255, 255, 255, 0.03); /* White opacity */
+      --color-card-hover-border: rgba(16, 185, 129, 0.35);
+      --color-card-hover-shadow: rgba(16, 185, 129, 0.06);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--color-bg);
+      color: var(--color-text);
+      font-family: 'Inter', 'Noto Sans KR', sans-serif;
+      padding: 24px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* Scrollbars (Staging 3-color elements) */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--color-bg);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
+      border: 1px solid var(--color-border);
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--color-accent);
+    }
+
+    /* ==========================================================================
+       2. Layout Grid & Glassmorphism Surfaces
+       ========================================================================== */
+    .container {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.02);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--color-text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    header h1 span {
+      background: var(--color-accent);
+      color: var(--color-bg);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    /* Control Panel: Upload, Date, Filtering */
+    .control-panel {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr 1.2fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 1200px) {
+      .control-panel {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    @media (max-width: 768px) {
+      .control-panel {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--color-card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      padding: 20px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .card:hover {
+      border-color: var(--color-card-hover-border);
+      box-shadow: 0 8px 30px var(--color-card-hover-shadow);
+      transform: translateY(-2px);
+    }
+
+    /* Drag & Drop File Upload Area */
+    .upload-zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 2px dashed rgba(16, 185, 129, 0.3);
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.3s ease;
+      background: rgba(255, 255, 255, 0.01);
+      position: relative;
+    }
+
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--color-accent);
+      background: rgba(16, 185, 129, 0.05);
+    }
+
+    .upload-zone input[type="file"] {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .upload-text {
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .upload-text strong {
+      color: var(--color-accent);
+    }
+
+    /* Filters Layout */
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .filter-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .input-field {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      color: var(--color-text);
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+
+    .input-field:focus {
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+    }
+
+    /* Styling of standard select dropdown options */
+    select.input-field option {
+      background-color: var(--color-bg);
+      color: var(--color-text);
+    }
+
+    .btn-action {
+      background: var(--color-accent);
+      color: var(--color-bg);
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .btn-action:hover {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+
+    /* Interactive toggle switches */
+    .toggle-btn {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--color-border);
+      color: var(--color-text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toggle-btn:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(16, 185, 129, 0.25);
+    }
+
+    .toggle-btn.active {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: var(--color-accent);
+      color: var(--color-accent);
+    }
+
+    /* KPI Summary Card Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 992px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    @media (max-width: 576px) {
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .kpi-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 110px;
+    }
+
+    .kpi-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .kpi-value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-top: 8px;
+      word-break: break-all;
+    }
+
+    .kpi-status-container {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      margin-top: 6px;
+    }
+
+    .kpi-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .indicator-success {
+      background-color: var(--color-accent);
+      box-shadow: 0 0 8px var(--color-accent);
+    }
+
+    .indicator-warn {
+      background-color: #eab308;
+      box-shadow: 0 0 8px #eab308;
+    }
+
+    .indicator-error {
+      background-color: #ef4444;
+      box-shadow: 0 0 8px #ef4444;
+    }
+
+    /* Dashboard Visualizations Grid */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.9fr 0.9fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 1200px) {
+      .chart-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .chart-container {
+      height: 320px;
+      width: 100%;
+    }
+
+    .chart-header {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: rgba(255, 255, 255, 0.85);
+      border-left: 3px solid var(--color-accent);
+      padding-left: 8px;
+    }
+
+    /* Data Table Section */
+    .table-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .table-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .table-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.9);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .table-title-badge {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 2px 8px;
+      font-size: 0.75rem;
+      border-radius: 12px;
+    }
+
+    .audit-legend {
+      display: flex;
+      gap: 12px;
+      font-size: 0.75rem;
+      align-items: center;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-box {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    /* Tabulator Table Overrides to Match 3-Color Glass Theme */
+    .tabulator {
+      background-color: transparent !important;
+      border: 1px solid var(--color-border) !important;
+      border-radius: 12px !important;
+      overflow: hidden;
+    }
+
+    .tabulator-header {
+      background-color: rgba(255, 255, 255, 0.02) !important;
+      border-bottom: 2px solid var(--color-accent) !important;
+      color: var(--color-text) !important;
+      font-weight: 700 !important;
+    }
+
+    .tabulator-col {
+      background-color: transparent !important;
+      color: var(--color-text) !important;
+      border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+    }
+
+    .tabulator-row {
+      background-color: transparent !important;
+      color: rgba(255, 255, 255, 0.9) !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+      min-height: 40px;
+    }
+
+    .tabulator-row.tabulator-row-even {
+      background-color: rgba(255, 255, 255, 0.01) !important;
+    }
+
+    .tabulator-row:hover {
+      background-color: rgba(16, 185, 129, 0.06) !important;
+    }
+
+    .tabulator-cell {
+      border-right: 1px solid rgba(255, 255, 255, 0.04) !important;
+      padding: 10px 8px !important;
+      display: flex;
+      align-items: center;
+    }
+
+    /* Group Row Headers */
+    .tabulator-row.tabulator-group {
+      background-color: rgba(255, 255, 255, 0.02) !important;
+      border-bottom: 1px solid var(--color-border) !important;
+      color: var(--color-text) !important;
+    }
+
+    /* Defect Highlighting classes for Tabulator Cells/Rows */
+    .cell-defect-missing {
+      background-color: rgba(234, 179, 8, 0.2) !important; /* Soft gold background */
+      border: 1px solid rgba(234, 179, 8, 0.35) !important;
+      color: #fef08a !important; /* gold text */
+    }
+
+    .row-defect-outlier .tabulator-cell {
+      background-color: rgba(239, 68, 68, 0.15) !important; /* Soft red z-score outlier background */
+      color: #fca5a5 !important; /* light red text */
+    }
+    
+    .row-defect-outlier:hover .tabulator-cell {
+      background-color: rgba(239, 68, 68, 0.22) !important;
+    }
+
+    .tabulator-footer {
+      background-color: rgba(255, 255, 255, 0.02) !important;
+      border-top: 1px solid var(--color-border) !important;
+      color: var(--color-text) !important;
+    }
+
+    .tabulator-page {
+      background-color: rgba(255, 255, 255, 0.03) !important;
+      color: var(--color-text) !important;
+      border: 1px solid rgba(255, 255, 255, 0.08) !important;
+      border-radius: 4px !important;
+      padding: 4px 8px !important;
+      transition: all 0.2s ease;
+    }
+
+    .tabulator-page.active {
+      background-color: var(--color-accent) !important;
+      color: var(--color-bg) !important;
+      font-weight: 700;
+    }
+
+    .tabulator-page:hover:not(.active) {
+      background-color: rgba(255, 255, 255, 0.08) !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <!-- Header -->
+    <header>
+      <h1>경영 대시보드 및 회계 분석기 <span>PRO</span></h1>
+      <button class="btn-action" id="btn-reset">기본 파일 재로드</button>
+    </header>
+
+    <!-- Control Panel -->
+    <section class="control-panel">
+      <!-- File Upload Zone -->
+      <div class="card upload-zone" id="drop-area">
+        <input type="file" id="csv-file-input" accept=".csv">
+        <div class="upload-text">
+          <strong>CSV 파일 드래그앤드롭</strong> 또는 클릭하여 업로드<br>
+          <span style="font-size: 0.75rem; opacity: 0.6;">(분개장.csv 분석 지원)</span>
+        </div>
+      </div>
+
+      <!-- Date Filter -->
+      <div class="card filter-group">
+        <div class="filter-label">기간 필터 (날짜 범위)</div>
+        <div class="filter-row">
+          <input type="date" id="date-start" class="input-field">
+          <input type="date" id="date-end" class="input-field">
+        </div>
+      </div>
+
+      <!-- Department & Account Subject filters -->
+      <div class="card filter-group">
+        <div class="filter-label">부서 및 계정과목 필터</div>
+        <div class="filter-row">
+          <select id="filter-dept" class="input-field">
+            <option value="">모든 부서</option>
+          </select>
+          <select id="filter-subject" class="input-field">
+            <option value="">모든 계정과목</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Search & Auditing options -->
+      <div class="card filter-group">
+        <div class="filter-label">텍스트 검색 및 분석 옵션</div>
+        <div class="filter-row">
+          <input type="text" id="filter-search" class="input-field" placeholder="적요, 거래처, 코드 검색...">
+        </div>
+        <div class="filter-row" style="margin-top: 8px; justify-content: flex-start; gap: 8px;">
+          <button id="toggle-unbalanced" class="toggle-btn">
+            <span class="toggle-icon">⚠️</span> 오류 전표만
+          </button>
+          <button id="toggle-grouping" class="toggle-btn">
+            <span class="toggle-icon">📂</span> 전표별 그룹화
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPI Summary Grid -->
+    <section class="kpi-grid">
+      <!-- Total Revenue -->
+      <div class="card kpi-card">
+        <div class="kpi-title">총 매출액 (Revenue)</div>
+        <div class="kpi-value" id="kpi-revenue">₩0</div>
+        <div class="kpi-status-container">
+          <div class="kpi-indicator indicator-success"></div>
+          <span style="opacity: 0.7;" id="kpi-revenue-mom">전월 대비 -%</span>
+        </div>
+      </div>
+      <!-- Total Expenses -->
+      <div class="card kpi-card">
+        <div class="kpi-title">총 집행 비용 (Expenses)</div>
+        <div class="kpi-value" id="kpi-expenses">₩0</div>
+        <div class="kpi-status-container">
+          <div class="kpi-indicator indicator-warn"></div>
+          <span style="opacity: 0.7;" id="kpi-expense-pct">매출 대비 0% 지출</span>
+        </div>
+      </div>
+      <!-- Net Income -->
+      <div class="card kpi-card">
+        <div class="kpi-title">당기 순손익 (Net Income)</div>
+        <div class="kpi-value" id="kpi-netincome">₩0</div>
+        <div class="kpi-status-container">
+          <div id="kpi-net-indicator" class="kpi-indicator"></div>
+          <span style="opacity: 0.7;" id="kpi-net-status">경영 성과 지표</span>
+        </div>
+      </div>
+      <!-- Double Entry Trial Balance Check -->
+      <div class="card kpi-card" id="kpi-audit-card">
+        <div class="kpi-title">대차 무결성 검증 (Trial Balance)</div>
+        <div class="kpi-value" id="kpi-audit-status">정상</div>
+        <div class="kpi-status-container">
+          <div id="kpi-audit-indicator" class="kpi-indicator"></div>
+          <span style="opacity: 0.7;" id="kpi-audit-desc">차대 전표 무결성 검사</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Visualizations Section -->
+    <section class="chart-grid">
+      <!-- Chart 1: Profit/Loss Trend -->
+      <div class="card">
+        <div class="chart-header">매출 vs 비용 월별 손익 분석</div>
+        <div id="chart-pl" class="chart-container"></div>
+      </div>
+      <!-- Chart 2: Account subject doughnut -->
+      <div class="card">
+        <div class="chart-header">계정과목별 비용 집행 비중</div>
+        <div id="chart-subject" class="chart-container"></div>
+      </div>
+      <!-- Chart 3: Department horizontal bar -->
+      <div class="card">
+        <div class="chart-header">부서별 비용 집행 랭킹</div>
+        <div id="chart-dept" class="chart-container"></div>
+      </div>
+    </section>
+
+    <!-- Interactive Table View -->
+    <section class="card table-section">
+      <div class="table-header-row">
+        <div class="table-title">
+          분개 전표 상세 데이터 내역
+          <span class="table-title-badge" id="table-row-count">0건 로드됨</span>
+        </div>
+        <div class="audit-legend">
+          <div class="legend-item">
+            <div class="legend-box" style="background-color: rgba(234, 179, 8, 0.2); border: 1px solid rgba(234, 179, 8, 0.35);"></div>
+            <span>결측치 셀 (누락 데이터)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-box" style="background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.22);"></div>
+            <span>금액 이상값 행 (z-score > 2)</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="data-table"></div>
+    </section>
+
+  </div>
+
+  <script>
+    // ==========================================================================
+    // A. Embed Default Fallback CSV Data (분개장.csv)
+    // ==========================================================================
+    const DEFAULT_CSV = `전표번호,날짜,계정코드,계정과목,차변,대변,거래처,부서,적요
+2604001,2026-04-05,10100,현금,500000,0,(주)한국상사,영업팀,제품 판매 대금 수령
+2604001,2026-04-05,40100,매출,0,500000,(주)한국상사,영업팀,제품 판매
+2604002,2026-04-08,51100,급여,3200000,0,,인사팀,4월 급여 지급
+2604002,2026-04-08,10100,현금,0,3200000,,인사팀,4월 급여 지급
+2604003,2026-04-10,13200,외상매출금,1100000,0,(주)서울유통,영업팀,제품 외상 판매
+2604003,2026-04-10,40100,매출,0,1000000,(주)서울유통,영업팀,제품 판매
+2604003,2026-04-10,25500,부가세예수금,0,100000,(주)서울유통,영업팀,부가세
+2604004,2026-04-15,51400,복리후생비,150000,0,,총무팀,직원 식대
+2604004,2026-04-15,10100,현금,0,150000,,총무팀,
+2604005,2026-04-20,14600,원재료,800000,0,(주)부산제조,구매팀,원재료 매입
+2604005,2026-04-20,13500,부가세대급금,80000,0,(주)부산제조,구매팀,부가세
+2604005,2026-04-20,21100,외상매입금,0,880000,(주)부산제조,구매팀,원재료 외상 매입
+2604006,2026-04-25,52300,감가상각비,480000,0,,회계팀,4월 기계장치 감가상각
+2604006,2026-04-25,17200,감가상각누계액,0,480000,,회계팀,기계장치 감가상각
+2605007,2026-05-03,51300,접대비,320000,0,(주)대구상사,영업팀,고객사 접대
+2605007,2026-05-03,10100,현금,0,320000,(주)대구상사,영업팀,
+2605008,2026-05-07,13200,외상매출금,2200000,0,(주)인천유통,영업팀,
+2605008,2026-05-07,40100,매출,0,2000000,(주)인천유통,영업팀,제품 판매
+2605008,2026-05-07,25500,부가세예수금,0,200000,(주)인천유통,영업팀,부가세
+2605009,2026-05-10,51200,임차료,1500000,0,,총무팀,5월 사무실 임차료
+2605009,2026-05-10,10100,현금,0,1200000,,총무팀,임차료 지급
+2605010,2026-05-14,51100,급여,4800000,0,,인사팀,5월 급여 지급
+2605010,2026-05-14,10100,현금,0,4800000,,인사팀,5월 급여 지급
+2605011,2026-05-16,51500,보험료,200000,0,,총무팀,사무실 화재보험료
+2605011,2026-05-16,10100,현금,0,200000,,총무팀,보험료 납부
+2605012,2026-05-20,52100,광고선전비,450000,0,(주)미디어코리아,영업팀,5월 온라인 광고
+2605012,2026-05-20,10100,현금,0,450000,(주)미디어코리아,영업팀,
+2605013,2026-05-22,10100,현금,1100000,0,(주)서울유통,영업팀,외상매출금 회수
+2605013,2026-05-22,13200,외상매출금,0,1100000,(주)서울유통,영업팀,
+2605014,2026-05-28,52200,통신비,95000,0,,총무팀,5월 인터넷·전화요금
+2605014,2026-05-28,10100,현금,0,95000,,총무팀,통신비 납부
+2606015,2026-06-03,13200,외상매출금,3300000,0,(주)광주유통,영업팀,제품 외상 판매
+2606015,2026-06-03,40100,매출,0,3000000,(주)광주유통,영업팀,제품 판매
+2606015,2026-06-03,25500,부가세예수금,0,300000,(주)광주유통,영업팀,부가세
+2606016,2026-06-10,51100,급여,5200000,0,,인사팀,6월 급여 지급
+2606016,2026-06-10,10100,현금,0,5200000,,인사팀,6월 급여 지급
+2606017,2026-06-12,14600,원재료,1200000,0,(주)대전제조,구매팀,원재료 매입
+2606017,2026-06-12,13500,부가세대급금,120000,0,(주)대전제조,구매팀,부가세
+2606017,2026-06-12,21100,외상매입금,0,1320000,(주)대전제조,구매팀,원재료 외상 매입
+2606018,2026-06-15,51300,접대비,580000,0,(주)부산상사,영업팀,
+2606018,2026-06-15,10100,현금,0,580000,(주)부산상사,영업팀,접대비 지급
+2606019,2026-06-18,51200,임차료,1500000,0,,총무팀,6월 사무실 임차료
+2606019,2026-06-18,10100,현금,0,1500000,,총무팀,임차료 지급
+2606020,2026-06-20,51400,복리후생비,280000,0,,인사팀,직원 경조사 지원
+2606020,2026-06-20,10100,현금,0,280000,,인사팀,
+2606021,2026-06-25,52300,감가상각비,480000,0,,회계팀,6월 기계장치 감가상각
+2606021,2026-06-25,17200,감가상각누계액,0,480000,,회계팀,기계장치 감가상각
+2606022,2026-06-28,53100,이자비용,150000,0,국민은행,회계팀,대출 이자 납부
+2606022,2026-06-28,10100,현금,0,150000,국민은행,회계팀,`;
+
+    let rawTransactions = [];
+    let parsedTransactions = [];
+    let filteredTransactions = [];
+    let tabulatorGrid = null;
+    let charts = {};
+    let outliersStats = { mean: 0, stdDev: 0 };
+    
+    let showOnlyUnbalanced = false;
+    let enableGrouping = false;
+    let globalUnbalancedSlips = [];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initCharts();
+      loadCSVData(DEFAULT_CSV);
+
+      document.getElementById('csv-file-input').addEventListener('change', handleFileSelect);
+      document.getElementById('btn-reset').addEventListener('click', () => {
+        document.getElementById('date-start').value = '';
+        document.getElementById('date-end').value = '';
+        document.getElementById('filter-dept').value = '';
+        document.getElementById('filter-subject').value = '';
+        document.getElementById('filter-search').value = '';
+        
+        showOnlyUnbalanced = false;
+        enableGrouping = false;
+        document.getElementById('toggle-unbalanced').classList.remove('active');
+        document.getElementById('toggle-grouping').classList.remove('active');
+
+        loadCSVData(DEFAULT_CSV);
+      });
+      
+      document.getElementById('date-start').addEventListener('input', applyFilters);
+      document.getElementById('date-end').addEventListener('input', applyFilters);
+      document.getElementById('filter-dept').addEventListener('change', applyFilters);
+      document.getElementById('filter-subject').addEventListener('change', applyFilters);
+      document.getElementById('filter-search').addEventListener('input', applyFilters);
+
+      document.getElementById('toggle-unbalanced').addEventListener('click', (e) => {
+        showOnlyUnbalanced = !showOnlyUnbalanced;
+        e.currentTarget.classList.toggle('active', showOnlyUnbalanced);
+        applyFilters();
+      });
+
+      document.getElementById('toggle-grouping').addEventListener('click', (e) => {
+        enableGrouping = !enableGrouping;
+        e.currentTarget.classList.toggle('active', enableGrouping);
+        applyFilters();
+      });
+
+      const dropZone = document.getElementById('drop-area');
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          dropZone.classList.add('dragover');
+        }, false);
+      });
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          dropZone.classList.remove('dragover');
+        }, false);
+      });
+      dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length > 0) handleFile(files[0]);
+      });
+
+      window.addEventListener('resize', () => {
+        Object.values(charts).forEach(chart => chart.resize());
+      });
+    });
+
+    function loadCSVData(csvString) {
+      Papa.parse(csvString, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          rawTransactions = results.data;
+          processAndAuditData();
+        },
+        error: function(err) {
+          alert('CSV 파싱 오류가 발생했습니다: ' + err.message);
+        }
+      });
+    }
+
+    function handleFileSelect(e) {
+      const files = e.target.files;
+      if (files.length > 0) handleFile(files[0]);
+    }
+
+    function handleFile(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) { loadCSVData(e.target.result); };
+      reader.readAsText(file, 'utf-8');
+    }
+
+    function processAndAuditData() {
+      parsedTransactions = rawTransactions.map((row, index) => {
+        const cleanedRow = {};
+        Object.keys(row).forEach(key => { cleanedRow[key.trim()] = row[key]; });
+
+        const debit = parseFloat(cleanedRow['차변']) || 0;
+        const credit = parseFloat(cleanedRow['대변']) || 0;
+
+        return {
+          id: index + 1,
+          slipNo: cleanedRow['전표번호'] ? cleanedRow['전표번호'].trim() : '',
+          date: cleanedRow['날짜'] ? cleanedRow['날짜'].trim() : '',
+          code: cleanedRow['계정코드'] ? cleanedRow['계정코드'].trim() : '',
+          subject: cleanedRow['계정과목'] ? cleanedRow['계정과목'].trim() : '',
+          debit: debit,
+          credit: credit,
+          client: cleanedRow['거래처'] ? cleanedRow['거래처'].trim() : '',
+          department: cleanedRow['부서'] ? cleanedRow['부서'].trim() : '',
+          memo: cleanedRow['적요'] ? cleanedRow['적요'].trim() : '',
+          _hasMissingCell: false,
+          _isOutlier: false
+        };
+      });
+
+      const slipBalances = {};
+      parsedTransactions.forEach(row => {
+        if (!row.slipNo || !row.date || !row.code || !row.subject || !row.client || !row.department || !row.memo) {
+          row._hasMissingCell = true;
+        }
+        if (row.slipNo) {
+          if (!slipBalances[row.slipNo]) slipBalances[row.slipNo] = 0;
+          slipBalances[row.slipNo] += (row.debit - row.credit);
+        }
+      });
+      globalUnbalancedSlips = Object.keys(slipBalances).filter(slip => Math.abs(slipBalances[slip]) > 0.01);
+
+      const nonZeroAmounts = parsedTransactions.flatMap(row => {
+        const arr = [];
+        if (row.debit > 0) arr.push(row.debit);
+        if (row.credit > 0) arr.push(row.credit);
+        return arr;
+      });
+
+      if (nonZeroAmounts.length > 1) {
+        outliersStats.mean = ss.mean(nonZeroAmounts);
+        outliersStats.stdDev = ss.standardDeviation(nonZeroAmounts);
+        parsedTransactions.forEach(row => {
+          const maxVal = Math.max(row.debit, row.credit);
+          if (maxVal > 0 && outliersStats.stdDev > 0) {
+            const zScore = Math.abs(maxVal - outliersStats.mean) / outliersStats.stdDev;
+            if (zScore > 2) row._isOutlier = true;
+          }
+        });
+      }
+
+      const deptSelect = document.getElementById('filter-dept');
+      const prevDept = deptSelect.value;
+      deptSelect.innerHTML = '<option value="">모든 부서</option>';
+      [...new Set(parsedTransactions.map(r => r.department).filter(d => d))].sort().forEach(dept => {
+        const opt = document.createElement('option'); opt.value = dept; opt.textContent = dept;
+        deptSelect.appendChild(opt);
+      });
+      deptSelect.value = prevDept;
+
+      const subjectSelect = document.getElementById('filter-subject');
+      const prevSub = subjectSelect.value;
+      subjectSelect.innerHTML = '<option value="">모든 계정과목</option>';
+      [...new Set(parsedTransactions.map(r => r.subject).filter(s => s))].sort().forEach(sub => {
+        const opt = document.createElement('option'); opt.value = sub; opt.textContent = sub;
+        subjectSelect.appendChild(opt);
+      });
+      subjectSelect.value = prevSub;
+
+      const dates = parsedTransactions.map(r => r.date).filter(d => d);
+      if (dates.length > 0) {
+        const sortedDates = dates.sort();
+        document.getElementById('date-start').min = sortedDates[0];
+        document.getElementById('date-start').max = sortedDates[sortedDates.length - 1];
+        document.getElementById('date-end').min = sortedDates[0];
+        document.getElementById('date-end').max = sortedDates[sortedDates.length - 1];
+      }
+      applyFilters();
+    }
+
+    function applyFilters() {
+      const dateStart = document.getElementById('date-start').value;
+      const dateEnd = document.getElementById('date-end').value;
+      const deptFilter = document.getElementById('filter-dept').value;
+      const subjectFilter = document.getElementById('filter-subject').value;
+      const searchFilter = document.getElementById('filter-search').value.toLowerCase().trim();
+
+      filteredTransactions = parsedTransactions.filter(row => {
+        if (showOnlyUnbalanced && !globalUnbalancedSlips.includes(row.slipNo)) return false;
+        if (dateStart && dayjs(row.date).isBefore(dayjs(dateStart))) return false;
+        if (dateEnd && dayjs(row.date).isAfter(dayjs(dateEnd))) return false;
+        if (deptFilter && row.department !== deptFilter) return false;
+        if (subjectFilter && row.subject !== subjectFilter) return false;
+        if (searchFilter) {
+          const matchMemo = row.memo.toLowerCase().includes(searchFilter);
+          const matchClient = row.client.toLowerCase().includes(searchFilter);
+          const matchSubject = row.subject.toLowerCase().includes(searchFilter);
+          const matchSlip = row.slipNo.toLowerCase().includes(searchFilter);
+          const matchCode = row.code.toLowerCase().includes(searchFilter);
+          if (!matchMemo && !matchClient && !matchSubject && !matchSlip && !matchCode) return false;
+        }
+        return true;
+      });
+
+      recalculateKPIs();
+      renderECharts();
+      renderTabulatorGrid();
+      document.getElementById('table-row-count').textContent = `${filteredTransactions.length}건 집계됨`;
+    }
+
+    function recalculateKPIs() {
+      let revenue = 0, expenses = 0, totalDebits = 0, totalCredits = 0;
+      const monthlyRevenue = {}, slipBalances = {};
+
+      filteredTransactions.forEach(row => {
+        totalDebits += row.debit;
+        totalCredits += row.credit;
+        if (row.slipNo) {
+          if (!slipBalances[row.slipNo]) slipBalances[row.slipNo] = 0;
+          slipBalances[row.slipNo] += (row.debit - row.credit);
+        }
+        if (row.subject === '매출') {
+          revenue += row.credit;
+          if (row.date) {
+            const m = dayjs(row.date).format('YYYY-MM');
+            monthlyRevenue[m] = (monthlyRevenue[m] || 0) + row.credit;
+          }
+        }
+        if (row.code.startsWith('5')) expenses += row.debit;
+      });
+
+      const netIncome = revenue - expenses;
+      const discrepancy = totalDebits - totalCredits;
+
+      document.getElementById('kpi-revenue').textContent = '₩' + numeral(revenue).format('0,0');
+      document.getElementById('kpi-expenses').textContent = '₩' + numeral(expenses).format('0,0');
+      document.getElementById('kpi-netincome').textContent = '₩' + numeral(netIncome).format('0,0');
+
+      const sortedMonths = Object.keys(monthlyRevenue).sort();
+      let momText = '전월 대비 -%';
+      if (sortedMonths.length >= 2) {
+        const latestRev = monthlyRevenue[sortedMonths[sortedMonths.length - 1]];
+        const prevRev = monthlyRevenue[sortedMonths[sortedMonths.length - 2]];
+        if (prevRev > 0) {
+          const pct = ((latestRev - prevRev) / prevRev) * 100;
+          momText = `${pct >= 0 ? '+' : ''}${numeral(pct).format('0.0')}% (전월 대비)`;
+        }
+      } else if (sortedMonths.length === 1) momText = '비교 데이터 없음';
+      document.getElementById('kpi-revenue-mom').textContent = momText;
+
+      const expPct = revenue > 0 ? (expenses / revenue) * 100 : 0;
+      document.getElementById('kpi-expense-pct').textContent = `매출 대비 ${numeral(expPct).format('0.0')}% 지출`;
+
+      const netIndicator = document.getElementById('kpi-net-indicator');
+      const netStatusText = document.getElementById('kpi-net-status');
+      const netValueLabel = document.getElementById('kpi-netincome');
+      
+      if (netIncome > 0) {
+        netIndicator.className = 'kpi-indicator indicator-success';
+        netStatusText.textContent = '영업 흑자 기록 중';
+        netValueLabel.style.color = 'var(--color-accent)';
+      } else if (netIncome < 0) {
+        netIndicator.className = 'kpi-indicator indicator-error';
+        netStatusText.textContent = '영업 적자 상태';
+        netValueLabel.style.color = '#ef4444';
+      } else {
+        netIndicator.className = 'kpi-indicator indicator-warn';
+        netStatusText.textContent = '손익 평형 지점';
+        netValueLabel.style.color = 'var(--color-text)';
+      }
+
+      const auditIndicator = document.getElementById('kpi-audit-indicator');
+      const auditStatusText = document.getElementById('kpi-audit-status');
+      const auditDescText = document.getElementById('kpi-audit-desc');
+      const auditCard = document.getElementById('kpi-audit-card');
+      const unbalancedSlips = Object.keys(slipBalances).filter(slip => Math.abs(slipBalances[slip]) > 0.01);
+
+      if (unbalancedSlips.length === 0) {
+        auditIndicator.className = 'kpi-indicator indicator-success';
+        auditStatusText.textContent = '정상';
+        auditStatusText.style.color = 'var(--color-text)';
+        auditDescText.textContent = '모든 복식 분개 대차 일치';
+        auditCard.style.borderColor = 'var(--color-border)';
+        auditCard.style.boxShadow = 'none';
+      } else {
+        auditIndicator.className = 'kpi-indicator indicator-error';
+        auditStatusText.textContent = '경고 (대차 불일치)';
+        auditStatusText.style.color = '#fca5a5';
+        auditDescText.innerHTML = `오류 전표: <strong>${unbalancedSlips.join(', ')}</strong> (차이: ₩${numeral(Math.abs(discrepancy)).format('0,0')})`;
+        auditCard.style.borderColor = '#ef4444';
+        auditCard.style.boxShadow = '0 0 15px rgba(239, 68, 68, 0.15)';
+      }
+    }
+
+    function initCharts() {
+      charts.pl = echarts.init(document.getElementById('chart-pl'));
+      charts.subject = echarts.init(document.getElementById('chart-subject'));
+      charts.dept = echarts.init(document.getElementById('chart-dept'));
+    }
+
+    function renderECharts() {
+      const monthlyData = {};
+      filteredTransactions.forEach(row => {
+        if (!row.date) return;
+        const month = dayjs(row.date).format('YYYY-MM');
+        if (!monthlyData[month]) monthlyData[month] = { revenue: 0, expenses: 0 };
+        if (row.subject === '매출') monthlyData[month].revenue += row.credit;
+        if (row.code.startsWith('5')) monthlyData[month].expenses += row.debit;
+      });
+
+      const months = Object.keys(monthlyData).sort();
+      charts.pl.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(11, 15, 25, 0.9)', borderColor: 'var(--color-border)', textStyle: { color: '#ffffff' } },
+        legend: { textStyle: { color: '#ffffff' } },
+        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+        xAxis: [{ type: 'category', data: months, axisLabel: { color: 'rgba(255, 255, 255, 0.7)' }, axisLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.1)' } } }],
+        yAxis: [{ type: 'value', axisLabel: { color: 'rgba(255, 255, 255, 0.7)', formatter: v => numeral(v).format('0.0a') }, splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.05)' } } }],
+        series: [
+          { name: '매출액 (Revenue)', type: 'bar', data: months.map(m => monthlyData[m].revenue), itemStyle: { color: 'var(--color-accent)' } },
+          { name: '비용액 (Expenses)', type: 'bar', data: months.map(m => monthlyData[m].expenses), itemStyle: { color: 'rgba(16, 185, 129, 0.2)', borderColor: 'var(--color-accent)', borderWidth: 1.5 } }
+        ]
+      }, true);
+
+      const subjectData = {};
+      filteredTransactions.forEach(row => {
+        if (row.code.startsWith('5')) {
+          subjectData[row.subject] = (subjectData[row.subject] || 0) + row.debit;
+        }
+      });
+      charts.subject.setOption({
+        tooltip: { trigger: 'item', formatter: '{b}: ₩{c} ({d}%)', backgroundColor: 'rgba(11, 15, 25, 0.9)', borderColor: 'var(--color-border)', textStyle: { color: '#ffffff' } },
+        legend: { orient: 'horizontal', bottom: '0', textStyle: { color: 'rgba(255, 255, 255, 0.8)', fontSize: 10 } },
+        series: [{ name: '계정과목별 비용', type: 'pie', radius: ['45%', '70%'], itemStyle: { borderRadius: 8, borderColor: '#0b0f19', borderWidth: 2 }, data: Object.keys(subjectData).map(k => ({ name: k, value: subjectData[k] })), color: ['#10b981', '#059669', '#047857', '#065f46', '#064e3b', '#34d399', '#6ee7b7', '#a7f3d0'] }]
+      }, true);
+
+      const deptData = {};
+      filteredTransactions.forEach(row => {
+        if (row.code.startsWith('5')) deptData[row.department] = (deptData[row.department] || 0) + row.debit;
+      });
+      const sortedDepts = Object.keys(deptData).sort((a,b) => deptData[a] - deptData[b]);
+      charts.dept.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(11, 15, 25, 0.9)', borderColor: 'var(--color-border)', textStyle: { color: '#ffffff' } },
+        grid: { left: '3%', right: '6%', bottom: '3%', containLabel: true },
+        xAxis: { type: 'value', axisLabel: { color: 'rgba(255, 255, 255, 0.7)', formatter: v => numeral(v).format('0.0a') }, splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.05)' } } },
+        yAxis: { type: 'category', data: sortedDepts, axisLabel: { color: 'rgba(255, 255, 255, 0.7)' }, axisLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.1)' } } },
+        series: [{ name: '집행 비용', type: 'bar', data: sortedDepts.map(d => deptData[d]), itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: 'rgba(16, 185, 129, 0.1)' }, { offset: 1, color: 'var(--color-accent)' }]), borderRadius: [0, 6, 6, 0] } }]
+      }, true);
+    }
+
+    function renderTabulatorGrid() {
+      const defectCellFormatter = function(cell) {
+        const val = cell.getValue();
+        if (val === undefined || val === null || String(val).trim() === "") {
+          cell.getElement().classList.add('cell-defect-missing');
+          return "<span style='font-style: italic; opacity: 0.6;'>미입력</span>";
+        }
+        const fieldName = cell.getField();
+        if (fieldName === 'debit' || fieldName === 'credit') return val > 0 ? '₩' + numeral(val).format('0,0') : '-';
+        return val;
+      };
+
+      tabulatorGrid = new Tabulator('#data-table', {
+        data: filteredTransactions,
+        layout: 'fitColumns',
+        responsiveLayout: 'hide',
+        pagination: 'local',
+        paginationSize: 15,
+        groupBy: enableGrouping ? 'slipNo' : false,
+        groupHeader: function(value, count, data) {
+          const slipDiff = data.reduce((acc, row) => acc + (row.debit - row.credit), 0);
+          const statusText = Math.abs(slipDiff) > 0.01 
+            ? `<span style="color:#ef4444; font-weight:bold; margin-left:12px;">⚠️ 대차 불일치 (차이: ₩${numeral(Math.abs(slipDiff)).format('0,0')})</span>`
+            : `<span style="color:var(--color-accent); font-weight:bold; margin-left:12px;">✓ 대차 일치</span>`;
+          return `전표번호: <span style="font-weight:700;">${value}</span> <span style="opacity:0.6; font-size:0.8rem;">(${count}건)</span> ${statusText}`;
+        },
+        placeholder: "조회된 거래 정보가 존재하지 않습니다.",
+        columns: [
+          { title: "전표번호", field: "slipNo", width: 100, headerSort: true, formatter: defectCellFormatter },
+          { title: "날짜", field: "date", width: 110, headerSort: true, formatter: defectCellFormatter },
+          { title: "계정코드", field: "code", width: 100, headerSort: true, formatter: defectCellFormatter },
+          { title: "계정과목", field: "subject", width: 120, headerSort: true, formatter: defectCellFormatter },
+          { title: "차변 (₩)", field: "debit", hozAlign: "right", headerSort: true, formatter: defectCellFormatter },
+          { title: "대변 (₩)", field: "credit", hozAlign: "right", headerSort: true, formatter: defectCellFormatter },
+          { title: "거래처", field: "client", width: 140, headerSort: true, formatter: defectCellFormatter },
+          { title: "부서", field: "department", width: 110, headerSort: true, formatter: defectCellFormatter },
+          { title: "적요 (메모)", field: "memo", hozAlign: "left", headerSort: false, formatter: defectCellFormatter }
+        ],
+        // Row Formatter to highlight Z-score Outliers (> 2 std dev) in soft red
+        rowFormatter: function(row) {
+          const rowData = row.getData();
+          if (rowData._isOutlier) {
+            row.getElement().classList.add('row-defect-outlier');
+          }
+        }
+      });
+    }
+
+  </script>
+</body>
+</html>
